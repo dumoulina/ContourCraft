@@ -15,6 +15,7 @@ from utils.io import load_obj, pickle_load
 from utils.coarse import make_coarse_edges
 from utils.common import triangles_to_edges, NodeType
 from utils.defaults import DEFAULTS
+from utils.datasets import make_obstacle_dict
 from utils.mesh_creation import add_coarse_edges
 import torch_geometric
 
@@ -29,20 +30,12 @@ class Config:
     
     n_frames: int = 30  # Number of frames in the sequence
     obstacle_dict_file: Optional[
-        str] = None  # Path to the file with auxiliary data for obstacles relative to $HOOD_DATA/aux_data/
+        str] = None  # Path to the file with auxiliary data for obstacles relative to $DEFAULTS.data_root/aux_data/
     pinned_verts: bool = True  # Whether to use pinned vertices
     restpos_scale: float = 1.  # Minimum scale for randomly sampling the canonical garment geometry
     n_coarse_levels: int = 1  # Number of coarse levels with long-range edges
 
 
-def make_obstacle_dict(mcfg: Config) -> dict:
-    if mcfg.obstacle_dict_file is None:
-        return {}
-
-    obstacle_dict_path = os.path.join(DEFAULTS.aux_data, mcfg.obstacle_dict_file)
-    with open(obstacle_dict_path, 'rb') as f:
-        obstacle_dict = pickle.load(f)
-    return obstacle_dict
 
 
 def create_loader(mcfg: Config):

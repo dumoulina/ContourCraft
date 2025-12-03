@@ -1,8 +1,12 @@
+from pathlib import Path
 import pickle
 from typing import Dict
 
 import torch
+import smplx
 from smplx import SMPL
+import os
+from utils.defaults import DEFAULTS
 
 from utils.garment_smpl import GarmentSMPL
 
@@ -54,3 +58,24 @@ def make_fromanypose_dataloader(pose_sequence_type, pose_sequence_path, garment_
     dataloader = DataloaderModule(dataset, dataloader_config).create_dataloader()
     return dataloader
 
+def build_smpl_bygender(smpl_root, model_type='smpl', use_pca=False):
+    smpl_root = Path(smpl_root)
+    smpl_model_dict = {}
+
+    for gender in ['male', 'female', 'neutral']:
+        try:
+            smpl_model_dict[gender] = smplx.create(smpl_root, model_type=model_type, gender=gender, use_pca=use_pca)
+        except Exception as e:
+            print(f'WARNING: {gender} model not found in {smpl_root}.')
+    
+    return smpl_model_dict
+
+
+def make_obstacle_dict(mcfg) -> dict:
+    if mcfg.obstacle_dict_file is None:
+        return {}
+
+    obstacle_dict_path = os.path.join(DEFAULTS.aux_data, mcfg.obstacle_dict_file)
+    with open(obstacle_dict_path, 'rb') as f:
+        obstacle_dict = pickle.load(f)
+    return obstacle_dict

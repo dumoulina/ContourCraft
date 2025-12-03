@@ -2,13 +2,9 @@ import os
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).parents[1]))
+print(sys.path[-1])
 
-if 'HOOD_PROJECT' in os.environ and os.path.exists(os.environ['HOOD_PROJECT']):
-    sys.path.append(os.environ['HOOD_PROJECT'])
-else:
-    file_path = Path(__file__).parent.parent
-    sys.path.append(str(file_path))
-    # assert False
 
 from dataclasses import dataclass
 

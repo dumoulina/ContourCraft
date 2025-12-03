@@ -7,7 +7,6 @@ from typing import Dict, Optional
 
 import numpy as np
 import torch
-from huepy import yellow
 from omegaconf import II
 from omegaconf.dictconfig import DictConfig
 from torch import nn
@@ -20,7 +19,7 @@ from runners.utils.collector import SampleCollector
 from runners.utils.collision import CollisionPreprocessor
 from runners.utils.material import RandomMaterial
 from utils.cloth_and_material import FaceNormals, ClothMatAug
-from utils.common import move2device, save_checkpoint, add_field_to_pyg_batch
+from utils.common import copy_pyg_batch, move2device, save_checkpoint, add_field_to_pyg_batch
 from utils.defaults import DEFAULTS
 
 
@@ -74,13 +73,13 @@ class Runner(nn.Module):
         super().__init__()
 
         self.model = model
-        self.criterion_dict = criterion_dict
+        self.criterion_dict = criterion_dict['ccraft']
         self.mcfg = mcfg
 
         self.cloth_obj = ClothMatAug(None, always_overwrite_mass=True)
         self.normals_f = FaceNormals()
 
-        self.sample_collector = SampleCollector(mcfg)
+        self.sample_collector = SampleCollector(mcfg, obstacle=True)
         self.collision_solver = CollisionPreprocessor(mcfg)
         self.random_material = RandomMaterial(mcfg.material)
 
@@ -102,8 +101,13 @@ class Runner(nn.Module):
         sequence = add_field_to_pyg_batch(sequence, 'iter', [0], 'cloth', reference_key=None)
         sequence = self.add_cloth_obj(sequence)
 
-        n_samples = sequence['obstacle'].pos.shape[1]
-        if n_steps > 0:
+        is_obstacle = 'obstacle' in sequence.node_types
+        if is_obstacle:
+            n_samples = sequence['obstacle'].lookup.shape[1]
+        else:
+            n_samples = sequence['cloth'].lookup.shape[1]
+
+        if n_steps >= 0:
             n_samples = min(n_samples, n_steps)
 
         trajectories_dicts = defaultdict(lambda: defaultdict(list))
@@ -141,11 +145,16 @@ class Runner(nn.Module):
             pbar = tqdm(pbar)
 
         prev_out_dict = None
+        # print('SEQUENCE')
+        # print(sequence)
         for i in pbar:
             state = self.collect_sample_wholeseq(sequence, i, prev_out_dict)
 
-            if i == 0:
-                state = self.collision_solver.solve(state)
+            # if i == 0:
+            #     state = self.collision_solver.solve(state)
+
+            # print('STATE')
+            # print(state); assert False
 
             state = self.model(state)
 
@@ -155,48 +164,66 @@ class Runner(nn.Module):
             if not bare:
                 loss_dict = self.criterion_pass(state)
                 for k, v in loss_dict.items():
-                    metrics_dict[k].append(v.item())
+                    if 'loss' in k:
+                        metrics_dict[k].append(v.item())
             prev_out_dict = state.clone()
 
         
         return trajectory, obstacle_trajectory, metrics_dict
 
-    def collect_sample_wholeseq(self, sequence, index, prev_out_dict):
+    # def collect_sample_wholeseq(self, sequence, index, prev_out_dict):
 
-        """
-        Collects a sample from the sequence, given the previous output and the index of the current step
-        This function is only used in validation
-        For training, see `collect_sample`
+    #     """
+    #     Collects a sample from the sequence, given the previous output and the index of the current step
+    #     This function is only used in validation
+    #     For training, see `collect_sample`
 
-        :param sequence: torch geometric batch with the sequence
-        :param index: index of the current step
-        :param prev_out_dict: previous output of the model
+    #     :param sequence: torch geometric batch with the sequence
+    #     :param index: index of the current step
+    #     :param prev_out_dict: previous output of the model
 
-        """
-        sample_step = sequence.clone()
+    #     """
+    #     sample_step = sequence.clone()
 
-        # gather infor for the current step
-        sample_step = self.sample_collector.sequence2sample(sample_step, index)
+    #     # gather infor for the current step
+    #     sample_step = self.sample_collector.sequence2sample(sample_step, index)
 
-        # move to device
-        sample_step = move2device(sample_step, self.mcfg.device)
+    #     # move to device
+    #     sample_step = move2device(sample_step, self.mcfg.device)
+
+    #     # coly fields from the previous step (pred_pos -> pos, pos->prev_pos)
+    #     sample_step = self.sample_collector.copy_from_prev(sample_step, prev_out_dict)
+    #     ts = self.mcfg.regular_ts
+
+    #     # in the first step, the obstacle and positions of the pinned vertices are static
+    #     if index == 0:
+    #         sample_step = self.sample_collector.target2pos(sample_step)
+    #         sample_step = self.sample_collector.pos2prev(sample_step)
+    #         ts = self.mcfg.initial_ts
+    #     # in the second step, we set velocities for both the cloth and the obstacle to zero
+    #     elif index == 1:
+    #         sample_step = self.sample_collector.pos2prev(sample_step)
+
+    #     sample_step = self.sample_collector.add_timestep(sample_step, ts)
+    #     sample_step = self.sample_collector.add_velocity(sample_step, prev_out_dict)
+    #     return sample_step
+
+    def collect_sample_wholeseq(self, sample, idx, prev_out_dict=None):
+        sample_step = copy_pyg_batch(sample)
 
         # coly fields from the previous step (pred_pos -> pos, pos->prev_pos)
         sample_step = self.sample_collector.copy_from_prev(sample_step, prev_out_dict)
         ts = self.mcfg.regular_ts
 
-        # in the first step, the obstacle and positions of the pinned vertices are static
-        if index == 0:
-            sample_step = self.sample_collector.target2pos(sample_step)
-            sample_step = self.sample_collector.pos2prev(sample_step)
-            ts = self.mcfg.initial_ts
-        # in the second step, we set velocities for both the cloth and the obstacle to zero
-        elif index == 1:
-            sample_step = self.sample_collector.pos2prev(sample_step)
+        if idx > 0:
+            sample_step = self.sample_collector.lookup2target(sample_step, idx)
 
+        is_init = False
+        sample_step = self.sample_collector.add_is_init(sample_step, is_init)
         sample_step = self.sample_collector.add_timestep(sample_step, ts)
         sample_step = self.sample_collector.add_velocity(sample_step, prev_out_dict)
         return sample_step
+
 
     def set_random_material(self, sample):
         """
@@ -340,7 +367,7 @@ def run_epoch(training_module: Runner, aux_modules: dict, dataloader: DataLoader
         dt_string = now.strftime("%Y%m%d_%H%M%S")
         cfg.run_dir = os.path.join(DEFAULTS.experiment_root, dt_string)
         checkpoints_dir = os.path.join(cfg.run_dir, 'checkpoints')
-    print(yellow(f'run_epoch started, checkpoints will be saved in {checkpoints_dir}'))
+    print(f'run_epoch started, checkpoints will be saved in {checkpoints_dir}')
 
     for sample in prbar:
         global_step += 1

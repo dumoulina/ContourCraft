@@ -62,7 +62,12 @@ class SequenceLoader:
 
     def convert_seq_to_hood_format(self, sequence_raw: dict) -> dict:
         sequence = dict()
-        sequence['betas'] = sequence_raw['betas'][:10]
+        betas = sequence_raw['betas']
+        if betas.ndim == 1:            
+            sequence['betas'] = sequence_raw['betas'][:10]
+        else:
+            sequence['betas'] = sequence_raw['betas'][:, :10]
+
         sequence['global_orient'] = sequence_raw['root_orient']
         sequence['body_pose'] = sequence_raw['pose_body']
         sequence['left_hand_pose'] = sequence_raw['pose_hand'][:, :45]
@@ -70,7 +75,11 @@ class SequenceLoader:
         sequence['jaw_pose'] = sequence_raw['pose_jaw']
         sequence['leye_pose'] = sequence_raw['pose_eye'][:, :3]
         sequence['reye_pose'] = sequence_raw['pose_eye'][:, 3:6]
-        sequence['expression'] = np.zeros_like(sequence['betas'])
+
+        if 'expression' in sequence_raw:
+            sequence['expression'] = sequence_raw['expression']
+        else:
+            sequence['expression'] = np.zeros_like(sequence['betas'])
 
         sequence['transl'] = sequence_raw['trans']
 
@@ -83,6 +92,7 @@ class SequenceLoader:
                   'jaw_pose', 'leye_pose', 'reye_pose']:            
             sequence[k] = sequence[k][::skip_every]
 
+        sequence['subsample'] = skip_every
         return sequence
     
     def add_initialization_frames(self, sequence: dict) -> dict:
