@@ -115,8 +115,8 @@ Unpack it anywhere you want and set the `HOOD_DATA` environmental variable to th
 Also, set the `HOOD_PROJECT` environmental variable to the path you cloned this repository to:
 
 ```bash
-export HOOD_DATA=/path/to/hood_data
-export HOOD_PROJECT=/path/to/this/repository
+export HOOD_DATA=/home/adumouli/Dev/EXPERIMENT/hood_data
+export HOOD_PROJECT=/home/adumouli/Dev/EXPERIMENT/ContourCraft/
 ```
 
 ### SMPL(-X) models

@@ -10,7 +10,6 @@ import smplx
 import torch
 from smplx import SMPL
 from torch_geometric.data import HeteroData
-from loguru import logger
 
 from utils.coarse import make_coarse_edges
 from utils.common import NodeType, triangles_to_edges, separate_arms
