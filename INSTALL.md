@@ -2,11 +2,6 @@
 
 To run ContourCraft you'll need to, first, set up the environment and, second, download required data. Here we describe both these steps.
 
-```bash
-export HOOD_DATA=/path/to/hood_data
-export HOOD_PROJECT=/path/to/this/repository
-```
-
 ## Set up the environment
 
 We provide three options for the environment installation. They all should lead to exactly same environment with all the libraries needed to run ContourCraft.
