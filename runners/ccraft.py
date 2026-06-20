@@ -1,10 +1,9 @@
 # wbody2 == mimp_cut_wbody_omw_ombp
 import os
 from pathlib import Path
-import random
 import time
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Dict, Optional
 
@@ -15,8 +14,6 @@ from omegaconf.dictconfig import DictConfig
 from torch import nn
 from torch.optim import Adam
 from torch.optim.lr_scheduler import LambdaLR
-from torch.utils.data import DataLoader
-from torch_geometric.data import HeteroData, Batch
 from tqdm import tqdm
 
 from runners.utils.collector import SampleCollector
@@ -24,7 +21,7 @@ from runners.utils.collision import CollisionPreprocessor
 from runners.utils.impulses import CollisionSolver
 from runners.utils.material import RandomMaterial
 from utils.cloth_and_material import FaceNormals, ClothMatAug
-from utils.common import move2device, save_checkpoint, add_field_to_pyg_batch, copy_pyg_batch, TorchTimer, NodeType
+from utils.common import move2device, save_checkpoint, add_field_to_pyg_batch, copy_pyg_batch, TorchTimer
 from utils.defaults import DEFAULTS
 
 
@@ -73,9 +70,9 @@ class SafecheckConfig:
 
 @dataclass
 class Config:
-    optimizer: OptimConfig = OptimConfig()
-    material: MaterialConfig = MaterialConfig()
-    safecheck: SafecheckConfig = SafecheckConfig()
+    optimizer: OptimConfig = field(default_factory=OptimConfig)
+    material: MaterialConfig = field(default_factory=MaterialConfig)
+    safecheck: SafecheckConfig = field(default_factory=SafecheckConfig)
     warmup_steps: int = 100
     increase_roll_every: int = 5000
     roll_max: int = 5
@@ -134,7 +131,7 @@ class Runner(nn.Module):
         trajectories_dicts = defaultdict(list)
 
         if record_time:
-            st_time = time.time()
+            st_time = time.perf_counter()
 
         st = 0
         self.model.eval()
@@ -142,7 +139,7 @@ class Runner(nn.Module):
                                                     progressbar=True, bare=bare, safecheck=safecheck)
 
         if record_time:
-            total_time = time.time() - st_time
+            total_time = time.perf_counter() - st_time
             metrics_dict['time'] = total_time
 
         # trajectories_dicts['pred'] = trajectory

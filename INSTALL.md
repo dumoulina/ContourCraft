@@ -11,6 +11,26 @@ export HOOD_PROJECT=/home/adumouli/Dev/EXPERIMENT/ContourCraft/
 
 We provide three options for the environment installation. They all should lead to exactly same environment with all the libraries needed to run ContourCraft.
 
+### Option 0: Updated install:
+
+```sh
+conda create -n ccraft -c rapidsai -c conda-forge \
+    rapids=26.06 python=3.13 'cuda-version>=12.2,<=12.9' \
+    networkx nx-cugraph=26.06 'pytorch=*=*cuda*'
+conda activate ccraft
+conda install omegaconf munch einops
+pip install torch-geometric
+conda install pytorch3d -c pytorch3d
+pip install torch-scatter -f https://data.pyg.org/whl/torch-2.12.0+cu126.html
+pip install warp-lang
+pip install smplx
+
+pip install --upgrade setuptools wheel
+cd CCCollisions
+export CPATH=$CONDA_PREFIX/targets/x86_64-linux/include/:$CPATH
+pip install . --no-build-isolation
+```
+
 ### Option 1: Install from the env file:
 
 #### Step 1: Install the environment from `ccraft.yaml`
